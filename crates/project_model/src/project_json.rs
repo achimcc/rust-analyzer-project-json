@@ -10,7 +10,8 @@ use std::path::PathBuf;
 use base_db::{CrateDisplayName, CrateId, CrateName, Dependency, Edition};
 use paths::{AbsPath, AbsPathBuf};
 use rustc_hash::FxHashMap;
-use serde::{de, Deserialize};
+use serde::{de, Serialize, Deserialize};
+use serde::ser::{Serializer, SerializeSeq};
 
 use crate::cfg_flag::CfgFlag;
 
@@ -117,19 +118,20 @@ impl ProjectJson {
     }
 }
 
-#[derive(Deserialize, Debug, Clone)]
+#[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct ProjectJsonData {
     sysroot_src: Option<PathBuf>,
     crates: Vec<CrateData>,
 }
 
-#[derive(Deserialize, Debug, Clone)]
+#[derive(Serialize, Deserialize, Debug, Clone)]
 struct CrateData {
     display_name: Option<String>,
     root_module: PathBuf,
     edition: EditionData,
     deps: Vec<DepData>,
     #[serde(default)]
+   // #[serde(serialize_with = "serialize_cfg_flag")]
     cfg: Vec<CfgFlag>,
     target: Option<String>,
     #[serde(default)]
@@ -140,8 +142,21 @@ struct CrateData {
     #[serde(default)]
     is_proc_macro: bool,
 }
+/* 
+fn serialize_cfg_flag<S>(cfg: Vec<CfgFlag>, ser: S) -> Result<S::Ok, S::Error>
+where
+    S: serde::ser::Serializer,
+{
+    ser.serialize_seq(Some(cfg.len()));
+    cfg.into_iter().for_each(|flag| { 
+        let flag = &flag.to_owned();
+        ser.serialize_str(flag);
+        ser.serialize_some(flag); 
+    });
+}
+*/
 
-#[derive(Deserialize, Debug, Clone)]
+#[derive(Serialize, Deserialize, Debug, Clone)]
 #[serde(rename = "edition")]
 enum EditionData {
     #[serde(rename = "2015")]
@@ -162,16 +177,17 @@ impl From<EditionData> for Edition {
     }
 }
 
-#[derive(Deserialize, Debug, Clone)]
+#[derive(Deserialize, Serialize, Debug, Clone)]
 struct DepData {
     /// Identifies a crate by position in the crates array.
     #[serde(rename = "crate")]
     krate: usize,
     #[serde(deserialize_with = "deserialize_crate_name")]
+    #[serde(serialize_with = "serialize_crate_name")]
     name: CrateName,
 }
 
-#[derive(Deserialize, Debug, Clone)]
+#[derive(Serialize, Deserialize, Debug, Clone)]
 struct CrateSource {
     include_dirs: Vec<PathBuf>,
     exclude_dirs: Vec<PathBuf>,
@@ -184,3 +200,11 @@ where
     let name = String::deserialize(de)?;
     CrateName::new(&name).map_err(|err| de::Error::custom(format!("invalid crate name: {:?}", err)))
 }
+
+fn serialize_crate_name<S>(crate_name: &CrateName, ser: S) -> Result<S::Ok, S::Error>
+where
+    S: serde::Serializer,
+{
+    ser.serialize_str(&crate_name.to_owned())
+}
+

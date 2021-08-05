@@ -38,6 +38,15 @@ impl<'de> serde::Deserialize<'de> for CfgFlag {
     }
 }
 
+impl serde::Serialize for CfgFlag {
+    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+    where
+            S: serde::Serializer {
+                serializer.serialize_str(&self.to_owned())
+    }
+}
+
+
 impl Extend<CfgFlag> for CfgOptions {
     fn extend<T: IntoIterator<Item = CfgFlag>>(&mut self, iter: T) {
         for cfg_flag in iter {
