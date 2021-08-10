@@ -77,13 +77,6 @@ pub fn load_workspace(
         WorkspaceBuildScripts::default()
     });
 
-    let crate_graph = ws.to_crate_graph(proc_macro_client.as_ref(), &mut |path: &AbsPath| {
-        let contents = loader.load_sync(path);
-        let path = vfs::VfsPath::from(path.to_path_buf());
-        vfs.set_file_contents(path.clone(), contents);
-        vfs.file_id(&path)
-    });
-
     let project_folders = ProjectFolders::new(&[ws], &[]);
     loader.set_config(vfs::loader::Config {
         load: project_folders.load,
@@ -91,9 +84,8 @@ pub fn load_workspace(
         version: 0,
     });
 
-    log::debug!("crate graph: {:?}", crate_graph);
     let host =
-        load_crate_graph(crate_graph, project_folders.source_root_config, &mut vfs, &receiver);
+        load_crate_graph( &mut vfs, &receiver);
 
     if load_config.prefill_caches {
         host.analysis().prime_caches(|_| {})?;
@@ -102,8 +94,6 @@ pub fn load_workspace(
 }
 
 fn load_crate_graph(
-    crate_graph: CrateGraph,
-    source_root_config: SourceRootConfig,
     vfs: &mut vfs::Vfs,
     receiver: &Receiver<vfs::loader::Message>,
 ) -> AnalysisHost {
@@ -137,12 +127,7 @@ fn load_crate_graph(
             }
         }
     }
-    let source_roots = source_root_config.partition(vfs);
-    analysis_change.set_roots(source_roots);
 
-    analysis_change.set_crate_graph(crate_graph);
-
-    host.apply_change(analysis_change);
     host
 }
 
