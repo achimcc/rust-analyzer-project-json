@@ -4,10 +4,11 @@ use std::fs;
 use anyhow::Result;
 use crossbeam_channel::{unbounded, Receiver};
 use hir::db::DefDatabase;
-use ide::{AnalysisHost, Change};
+use ide::{AnalysisHost, Change, FileId};
 use ide_db::base_db::CrateGraph;
 use project_model::{CargoConfig, CargoWorkspace, ProcMacroClient, ProjectManifest, ProjectWorkspace, WorkspaceBuildScripts};
 use vfs::{loader::Handle, AbsPath, AbsPathBuf};
+use cargo_metadata::Metadata;
 
 use crate::reload::{ProjectFolders, SourceRootConfig};
 
@@ -17,6 +18,11 @@ pub struct LoadCargoConfig {
     pub load_out_dirs_from_check: bool,
     pub with_proc_macro: bool,
     pub prefill_caches: bool,
+}
+
+pub struct ChangeJson {
+    pub meta: Metadata,
+    pub files: Vec<(FileId, Option<Arc<String>>)>,
 }
 
 // Note: Since this function is used by external tools that use rust-analyzer as a library
@@ -84,22 +90,20 @@ pub fn load_workspace(
         version: 0,
     });
 
-    let host =
-        load_crate_graph( &mut vfs, &receiver);
+    let files =
+        load_files( &mut vfs, &receiver);
 
-    if load_config.prefill_caches {
-        host.analysis().prime_caches(|_| {})?;
-    }
+    let host = AnalysisHost::default();  
+
     Ok((host, vfs, proc_macro_client))
 }
 
-fn load_crate_graph(
+fn load_files(
     vfs: &mut vfs::Vfs,
     receiver: &Receiver<vfs::loader::Message>,
-) -> AnalysisHost {
+) -> Vec<(FileId, Option<Arc<String>>)> {
     let lru_cap = std::env::var("RA_LRU_CAP").ok().and_then(|it| it.parse::<usize>().ok());
     let mut host = AnalysisHost::new(lru_cap);
-    let mut analysis_change = Change::new();
 
     host.raw_database_mut().set_enable_proc_attr_macros(true);
 
@@ -119,16 +123,19 @@ fn load_crate_graph(
         }
     }
     let changes = vfs.take_changes();
+
+    let mut files: Vec<(FileId, Option<Arc<String>>)> = Vec::new();
+
     for file in changes {
         if file.exists() {
             let contents = vfs.file_contents(file.file_id).to_vec();
             if let Ok(text) = String::from_utf8(contents) {
-                analysis_change.change_file(file.file_id, Some(Arc::new(text)))
+                files.push((file.file_id, Some(Arc::new(text))))
             }
         }
     }
 
-    host
+    files
 }
 
 
