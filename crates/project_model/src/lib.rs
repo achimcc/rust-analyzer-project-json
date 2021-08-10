@@ -45,7 +45,7 @@ pub use crate::{
         TargetData, TargetKind,
     },
     manifest_path::ManifestPath,
-    project_json::{ProjectJson, ProjectJsonData},
+    project_json::{ProjectJson, ProjectJsonData, CrateData},
     sysroot::Sysroot,
     workspace::{CfgOverrides, PackageRoot, ProjectWorkspace},
 };
@@ -145,7 +145,7 @@ impl ProjectManifest {
     }
 }
 
-fn utf8_stdout(mut cmd: Command) -> Result<String> {
+pub fn utf8_stdout(mut cmd: Command) -> Result<String> {
     let output = cmd.output().with_context(|| format!("{:?} failed", cmd))?;
     if !output.status.success() {
         match String::from_utf8(output.stderr) {

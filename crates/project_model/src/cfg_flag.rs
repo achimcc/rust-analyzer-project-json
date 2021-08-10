@@ -5,7 +5,7 @@ use std::str::FromStr;
 
 use cfg::CfgOptions;
 
-#[derive(Clone, Eq, PartialEq, Debug)]
+#[derive(Clone, Eq, PartialEq, serde::Serialize, Debug)]
 pub enum CfgFlag {
     Atom(String),
     KeyValue { key: String, value: String },
@@ -37,15 +37,6 @@ impl<'de> serde::Deserialize<'de> for CfgFlag {
         String::deserialize(deserializer)?.parse().map_err(serde::de::Error::custom)
     }
 }
-
-impl serde::Serialize for CfgFlag {
-    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
-    where
-            S: serde::Serializer {
-                serializer.serialize_str(&self.to_owned())
-    }
-}
-
 
 impl Extend<CfgFlag> for CfgOptions {
     fn extend<T: IntoIterator<Item = CfgFlag>>(&mut self, iter: T) {

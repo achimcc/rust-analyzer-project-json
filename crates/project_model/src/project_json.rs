@@ -125,13 +125,12 @@ pub struct ProjectJsonData {
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
-struct CrateData {
+pub struct CrateData {
     display_name: Option<String>,
     root_module: PathBuf,
     edition: EditionData,
     deps: Vec<DepData>,
     #[serde(default)]
-   // #[serde(serialize_with = "serialize_cfg_flag")]
     cfg: Vec<CfgFlag>,
     target: Option<String>,
     #[serde(default)]
@@ -142,19 +141,6 @@ struct CrateData {
     #[serde(default)]
     is_proc_macro: bool,
 }
-/* 
-fn serialize_cfg_flag<S>(cfg: Vec<CfgFlag>, ser: S) -> Result<S::Ok, S::Error>
-where
-    S: serde::ser::Serializer,
-{
-    ser.serialize_seq(Some(cfg.len()));
-    cfg.into_iter().for_each(|flag| { 
-        let flag = &flag.to_owned();
-        ser.serialize_str(flag);
-        ser.serialize_some(flag); 
-    });
-}
-*/
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
 #[serde(rename = "edition")]

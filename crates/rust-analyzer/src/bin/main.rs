@@ -103,7 +103,7 @@ fn try_main() -> Result<()> {
             skip_inference: cmd.skip_inference,
         }
         .run(verbosity)?,
-
+        flags::RustAnalyzerCmd::CreateJson(cmd) => { let _ = cli::create_json::create_json_file(&cmd.path); }
         flags::RustAnalyzerCmd::Diagnostics(cmd) => {
             cli::diagnostics(&cmd.path, !cmd.disable_build_scripts, !cmd.disable_proc_macros)?
         }

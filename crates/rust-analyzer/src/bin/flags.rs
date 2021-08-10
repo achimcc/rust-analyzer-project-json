@@ -75,6 +75,10 @@ xflags::xflags! {
             optional --skip-inference
         }
 
+        cmd create-json
+        required path: PathBuf
+        {}
+
         cmd diagnostics
             /// Directory with Cargo.toml.
             required path: PathBuf
@@ -122,6 +126,7 @@ pub enum RustAnalyzerCmd {
     Symbols(Symbols),
     Highlight(Highlight),
     AnalysisStats(AnalysisStats),
+    CreateJson(CreateJson),
     Diagnostics(Diagnostics),
     Ssr(Ssr),
     Search(Search),
@@ -161,6 +166,11 @@ pub struct AnalysisStats {
     pub disable_build_scripts: bool,
     pub disable_proc_macros: bool,
     pub skip_inference: bool,
+}
+
+#[derive(Debug)]
+pub struct CreateJson {
+    pub path: PathBuf,
 }
 
 #[derive(Debug)]
