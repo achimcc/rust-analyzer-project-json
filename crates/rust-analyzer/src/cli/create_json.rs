@@ -1,5 +1,6 @@
 use std::{path::Path, sync::Arc};
 
+use std::fs;
 use anyhow::Result;
 use crossbeam_channel::{unbounded, Receiver};
 use hir::db::DefDatabase;
@@ -33,7 +34,9 @@ pub fn create_json_file(
     match root {
         ProjectManifest::CargoToml(root) => {
             let meta = CargoWorkspace::fetch_metadata(&root, &cargo_config, progress)?;
-            println!("Meta: {:?}", meta);
+            let meta = serde_json::to_string(&meta).expect("serialization of change must work");
+            fs::write("./meta.json", meta).expect("Unable to write file");
+            println!("Metadata written to meta.json");
         }
         ProjectManifest::ProjectJson(root) => {
             println!("Cargo.toml needed!");
@@ -143,29 +146,6 @@ fn load_crate_graph(
     host
 }
 
-#[cfg(test)]
-mod tests {
-    use super::*;
-
-    use hir::Crate;
-
-    #[test]
-    fn test_loading_rust_analyzer() {
-        let path = Path::new(env!("CARGO_MANIFEST_DIR")).parent().unwrap().parent().unwrap();
-        let cargo_config = CargoConfig::default();
-        let load_cargo_config = LoadCargoConfig {
-            load_out_dirs_from_check: false,
-            with_proc_macro: false,
-            prefill_caches: false,
-        };
-        let (host, _vfs, _proc_macro) =
-            load_workspace_at(path, &cargo_config, &load_cargo_config, &|_| {}).unwrap();
-
-        let n_crates = Crate::all(host.raw_database()).len();
-        // RA has quite a few crates, but the exact count doesn't matter
-        assert!(n_crates > 20);
-    }
-}
 
 
 
