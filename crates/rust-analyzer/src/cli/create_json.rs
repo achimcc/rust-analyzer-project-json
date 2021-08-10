@@ -36,15 +36,23 @@ pub fn create_json_file(
     let root = AbsPathBuf::assert(std::env::current_dir()?.join(root));
     let root = ProjectManifest::discover_single(&root)?;
 
+    let ws = ProjectWorkspace::load(root.clone(), &cargo_config, &|_| {})?;
+
     let progress = &|_| {};
     match root {
         ProjectManifest::CargoToml(root) => {
             let meta = CargoWorkspace::fetch_metadata(&root, &cargo_config, progress)?;
             let meta = serde_json::to_string(&meta).expect("serialization of change must work");
             fs::write("./meta.json", meta).expect("Unable to write file");
+            let load_config = LoadCargoConfig {
+                load_out_dirs_from_check: true,
+                with_proc_macro: false,
+                prefill_caches: false,
+            };
+            let _res = load_workspace(ws, &cargo_config, &load_config, &|_| {});
             println!("Metadata written to meta.json");
         }
-        ProjectManifest::ProjectJson(root) => {
+        ProjectManifest::ProjectJson(_) => {
             println!("Cargo.toml needed!");
         }
     }
@@ -92,6 +100,7 @@ pub fn load_workspace(
 
     let files =
         load_files( &mut vfs, &receiver);
+    println!("files: {:?}", files);    
 
     let host = AnalysisHost::default();  
 
