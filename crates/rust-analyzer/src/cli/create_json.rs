@@ -51,14 +51,20 @@ pub fn create_json_file(
     match root {
         ProjectManifest::CargoToml(root) => {
             let meta = CargoWorkspace::fetch_metadata(&root, &cargo_config, progress)?;
-            let meta = serde_json::to_string(&meta).expect("serialization of change must work");
-            fs::write("./meta.json", meta).expect("Unable to write file");
+            // let meta = serde_json::to_string(&meta).expect("serialization of change must work");
+            // fs::write("./meta.json", meta).expect("Unable to write file");
             let load_config = LoadCargoConfig {
                 load_out_dirs_from_check: true,
                 with_proc_macro: false,
                 prefill_caches: false,
             };
-            let _res = load_workspace(ws, &cargo_config, &load_config, &|_| {});
+            let files = load_workspace(ws, &cargo_config, &load_config, &|_| {}).unwrap();
+            let change = ChangeJson {
+                meta,
+                files
+            };
+            let change = serde_json::to_string(&change).expect("serialization of change must work");
+            fs::write("./change.json", change).expect("Unable to write file");
             println!("Metadata written to meta.json");
         }
         ProjectManifest::ProjectJson(_) => {
@@ -104,8 +110,7 @@ pub fn load_workspace(
     });
 
     let files =
-        load_files( &mut vfs, &receiver);
-    println!("files: {:?}", files);    
+        load_files( &mut vfs, &receiver); 
 
     Ok(files)
 }
