@@ -4,13 +4,13 @@ use std::fs;
 use anyhow::Result;
 use crossbeam_channel::{unbounded, Receiver};
 use hir::db::DefDatabase;
-use ide::{AnalysisHost, Change, FileId};
-use ide_db::base_db::CrateGraph;
-use project_model::{CargoConfig, CargoWorkspace, ProcMacroClient, ProjectManifest, ProjectWorkspace, WorkspaceBuildScripts};
-use vfs::{loader::Handle, AbsPath, AbsPathBuf};
+use ide::{AnalysisHost, FileId};
+use project_model::{CargoConfig, CargoWorkspace, ProjectManifest, ProjectWorkspace, WorkspaceBuildScripts};
+use vfs::{loader::Handle, AbsPathBuf};
 use cargo_metadata::Metadata;
+use serde::{Serialize, Deserialize};
 
-use crate::reload::{ProjectFolders, SourceRootConfig};
+use crate::reload::ProjectFolders;
 
 // Note: Since this type is used by external tools that use rust-analyzer as a library
 // what otherwise would be `pub(crate)` has to be `pub` here instead.
@@ -20,9 +20,18 @@ pub struct LoadCargoConfig {
     pub prefill_caches: bool,
 }
 
+#[derive(Serialize)]
 pub struct ChangeJson {
     pub meta: Metadata,
+    #[serde(serialize_with = "serialize_files")]
     pub files: Vec<(FileId, Option<Arc<String>>)>,
+}
+
+fn serialize_files<S>(files: &Vec<(FileId, Option<Arc<String>>)>, ser: S) -> Result<S::Ok, S::Error>
+where
+    S: serde::Serializer,
+{
+    ser.collect_seq(files.iter().map(|(id, txt)|{(id.to_owned().0, txt.as_ref().unwrap().as_str().to_owned())}))
 }
 
 // Note: Since this function is used by external tools that use rust-analyzer as a library
@@ -69,20 +78,14 @@ pub fn load_workspace(
     cargo_config: &CargoConfig,
     load_config: &LoadCargoConfig,
     progress: &dyn Fn(String),
-) -> Result<(AnalysisHost, vfs::Vfs, Option<ProcMacroClient>)> {
+) -> Result<Vec<(FileId, Option<Arc<String>>)>> {
     let (sender, receiver) = unbounded();
     let mut vfs = vfs::Vfs::default();
+     
     let mut loader = {
         let loader =
             vfs_notify::NotifyHandle::spawn(Box::new(move |msg| sender.send(msg).unwrap()));
         Box::new(loader)
-    };
-
-    let proc_macro_client = if load_config.with_proc_macro {
-        let path = AbsPathBuf::assert(std::env::current_exe()?);
-        Some(ProcMacroClient::extern_process(path, &["proc-macro"]).unwrap())
-    } else {
-        None
     };
 
     ws.set_build_scripts(if load_config.load_out_dirs_from_check {
@@ -90,8 +93,10 @@ pub fn load_workspace(
     } else {
         WorkspaceBuildScripts::default()
     });
+    
 
     let project_folders = ProjectFolders::new(&[ws], &[]);
+ 
     loader.set_config(vfs::loader::Config {
         load: project_folders.load,
         watch: vec![],
@@ -102,9 +107,7 @@ pub fn load_workspace(
         load_files( &mut vfs, &receiver);
     println!("files: {:?}", files);    
 
-    let host = AnalysisHost::default();  
-
-    Ok((host, vfs, proc_macro_client))
+    Ok(files)
 }
 
 fn load_files(
