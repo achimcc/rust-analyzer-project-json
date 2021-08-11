@@ -20,10 +20,11 @@ pub struct LoadCargoConfig {
     pub prefill_caches: bool,
 }
 
-#[derive(Serialize)]
+#[derive(Serialize, Deserialize)]
 pub struct ChangeJson {
     pub meta: Metadata,
     #[serde(serialize_with = "serialize_files")]
+    #[serde(deserialize_with = "deserialize_files")]
     pub files: Vec<(FileId, Option<Arc<String>>)>,
 }
 
@@ -32,6 +33,15 @@ where
     S: serde::Serializer,
 {
     ser.collect_seq(files.iter().map(|(id, txt)|{(id.to_owned().0, txt.as_ref().unwrap().as_str().to_owned())}))
+}
+
+fn deserialize_files<'de, D>(de: D) -> Result<Vec<(FileId, Option<Arc<String>>)>, D::Error>
+where
+    D: serde::de::Deserializer<'de>,
+{
+    let v: Vec<(u32, String)> = Vec::deserialize(de)?;
+    let v = v.into_iter().map(|(id, txt)| (FileId {0: id }, Some(Arc::from(String::from(txt))))).collect();
+    Ok(v)
 }
 
 // Note: Since this function is used by external tools that use rust-analyzer as a library
