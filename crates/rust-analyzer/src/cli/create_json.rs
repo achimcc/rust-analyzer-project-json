@@ -74,6 +74,7 @@ pub fn create_json_file(
                 files
             };
             let change = serde_json::to_string(&change).expect("serialization of change must work");
+            let _deserialized_change: ChangeJson = serde_json::from_str(&change).expect("deserialization of change must work");
             fs::write("./change.json", change).expect("Unable to write file");
             println!("Metadata written to meta.json");
         }
